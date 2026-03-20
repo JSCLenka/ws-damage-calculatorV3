@@ -143,9 +143,22 @@ class GameEngine:
         
         random.shuffle(self.player_deck)
 
-        # --- 3. 初始处理 (仅在非精确算牌且勾选时生效) ---
-        if not cfg.get("o_advanced", False) and cfg.get("o_pre_refresh_dmg", False):
-            self.take_damage(1)
+
+    # ==========================================
+    # 以下代码紧接着上面的 random.shuffle(self.player_deck) 之后
+    # ==========================================
+
+    def _process_level_up(self, clock_zone, waiting_room):
+        """处理升级：优先挑一张不是 CX 的卡去升级，剩下的进休息室"""
+        chosen_idx = 0
+        for i, card in enumerate(clock_zone):
+            if not card.get("is_cx", False):
+                chosen_idx = i
+                break
+        
+        clock_zone.pop(chosen_idx) # 把选中的卡“吃掉”作为升级
+        waiting_room.extend(clock_zone) # 剩下的卡回休息室
+        clock_zone.clear()
 
     def player_refresh(self):
         """玩家侧洗牌与罚血逻辑"""
@@ -156,12 +169,12 @@ class GameEngine:
         
         # 罚血升级判定（仅在精确模式下生效）
         if self.cfg.get("p_advanced", False):
-            # 将一张抽象的卡作为罚血放入时计区
-            self.player_clock_zone.append({"is_cx": False, "level": 0, "trigger": False})
+            # 真实物理罚血：抽牌顶第一张
+            if self.player_deck:
+                self.player_clock_zone.append(self.player_deck.pop(0))
+                
             if len(self.player_clock_zone) >= 7:
-                # x-6 状态恰好升级，6张卡进入休息室
-                self.player_waiting_room.extend(self.player_clock_zone[1:])
-                self.player_clock_zone = []
+                self._process_level_up(self.player_clock_zone, self.player_waiting_room)
 
     def refresh_opp(self):
         """对手侧洗牌与罚血逻辑"""
@@ -172,22 +185,32 @@ class GameEngine:
         self.take_damage(1) 
 
     def take_damage(self, amount):
+        """强制进血 (用于对手洗牌罚血、ClockKick、ForcedBurn)"""
         for _ in range(amount):
-            self.opp_clock_zone.append({"is_cx": False, "level": 0, "trigger": False}) 
+            if not self.opp_deck:
+                self.refresh_opp()
+                
+            # 真实物理进血：抽牌顶第一张
+            if self.opp_deck:
+                self.opp_clock_zone.append(self.opp_deck.pop(0)) 
+                
             if len(self.opp_clock_zone) >= 7:
                 self.opp_level += 1
-                self.opp_waiting_room.extend(self.opp_clock_zone[1:]) 
-                self.opp_clock_zone = []
+                self._process_level_up(self.opp_clock_zone, self.opp_waiting_room)
 
     def deal_damage(self, amount, source_card=None):
+        """常规攻击烧血 (可被 CX 取消)"""
         if amount <= 0: return True
         res_zone = []
         is_cancelled = False
+        
         for _ in range(amount):
             if not self.opp_deck: self.refresh_opp()
             if not self.opp_deck: break
+            
             card = self.opp_deck.pop(0)
             res_zone.append(card)
+            
             if card["is_cx"]:
                 is_cancelled = True
                 break
@@ -202,8 +225,7 @@ class GameEngine:
                 self.opp_clock_zone.append(card)
                 if len(self.opp_clock_zone) >= 7:
                     self.opp_level += 1
-                    self.opp_waiting_room.extend(self.opp_clock_zone[1:])
-                    self.opp_clock_zone = []
+                    self._process_level_up(self.opp_clock_zone, self.opp_waiting_room)
             return True
 
     def check_triggers(self, timing, source_card):
@@ -268,12 +290,10 @@ class GameEngine:
             elif effect == "shot":       
                 attacker.has_shot_trigger = True
             
-            self.player_waiting_room.append(card)
             self.player_stock += 1 
             return cx_info["soul"]
             
         else:
-            self.player_waiting_room.append(card)
             self.player_stock += 1
             return 1 if card.get("trigger") else 0
 
@@ -297,6 +317,85 @@ class GameEngine:
         
         if not is_damage_resolved and getattr(attacker, "has_shot_trigger", False):
             self.deal_damage(1, source_card=None)
+
+    # ==========================================
+    # 扩展物理动作：推牌、看牌与条件判定 (支持高级 Action)
+    # ==========================================
+
+    def _evaluate_condition(self, card, condition):
+        """内部辅助函数：判断一张牌是否满足特定条件"""
+        if not card: return False
+        if condition == "cx": return card.get("is_cx", False)
+        if condition == "level_0": return card.get("level", -1) == 0
+        
+        # 🌟 贪婪法则 (Happy Path)：要求特定等级或特征，默认成功！
+        if condition in ["level_match", "any", "soul", "level3"]: 
+            return True
+        return False
+
+    # ---------------- 牌底区判定 ----------------
+    def mill_and_check_bottom(self, condition):
+        """推牌底到休息室，并判断条件"""
+        if not self.opp_deck: return False
+        bottom_card = self.opp_deck.pop(-1)
+        self.opp_waiting_room.append(bottom_card)
+        return self._evaluate_condition(bottom_card, condition)
+
+    def check_bottom(self, condition):
+        """只看牌底，不移动它"""
+        if not self.opp_deck: return False
+        return self._evaluate_condition(self.opp_deck[-1], condition)
+
+    # ---------------- 对手牌顶判定 ----------------
+    def check_opp_top(self, condition):
+        """只看对手牌顶，不移动它"""
+        if not self.opp_deck: return False
+        return self._evaluate_condition(self.opp_deck[0], condition)
+
+    def get_opp_top_level(self):
+        """获取对手牌顶等级 (用于武藏烧)"""
+        if not self.opp_deck: return 0
+        return self.opp_deck[0].get("level", 0)
+
+    def mill_and_check_opp_top(self, condition):
+        """推对手牌顶到休息室，并判断条件"""
+        if not self.opp_deck: return False
+        top_card = self.opp_deck.pop(0)
+        self.opp_waiting_room.append(top_card)
+        return self._evaluate_condition(top_card, condition)
+        
+    def mill_opp(self, amount, from_top=True):
+        """推对手牌 X 枚，返回其中高潮卡 (CX) 的数量 (用于推顶烧/推底烧)"""
+        cx_count = 0
+        for _ in range(amount):
+            if not self.opp_deck: break
+            card = self.opp_deck.pop(0) if from_top else self.opp_deck.pop(-1)
+            if card.get("is_cx", False):
+                cx_count += 1
+            self.opp_waiting_room.append(card)
+        return cx_count
+
+    # ---------------- 自己(玩家)牌顶判定 ----------------
+    def check_player_top(self, condition):
+        """只看自己牌顶，不移动它"""
+        if not self.player_deck: return False
+        return self._evaluate_condition(self.player_deck[0], condition)
+
+    def mill_and_check_player_top(self, condition):
+        """推自己牌顶到休息室，并判断条件"""
+        if not self.player_deck: return False
+        top_card = self.player_deck.pop(0)
+        self.player_waiting_room.append(top_card)
+        return self._evaluate_condition(top_card, condition)
+        
+    def moca_effect(self, amount):
+        """摩卡封印效果：将对手牌顶的 CX 扔进休息室"""
+        if amount <= 0: return
+        for _ in range(amount):
+            if not self.opp_deck: break
+            # 如果看了一眼是 CX，就把它丢到休息室
+            if self.opp_deck[0].get("is_cx", False):
+                self.opp_waiting_room.append(self.opp_deck.pop(0))
 
 # ==========================================
 # 2. 数据处理与 Action
@@ -411,7 +510,6 @@ with st.sidebar:
     else:
         cfg["o_lvl"] = st.number_input("当前等级", 0, 3, 3, key="ob_lvl")
         cfg["o_clk"] = st.number_input("当前时计总数", 0, 6, 0, key="ob_clk")
-        cfg["o_pre_refresh_dmg"] = st.checkbox("开始计算前加一次卡组更新伤害", False)
         cfg["o_deck"] = st.number_input("卡组总张数", 0, 50, 30, key="ob_dk")
         cfg["o_cx"] = st.number_input("卡组剩余 CX (张)", 0, 8, 8, key="ob_cx")
 
@@ -534,19 +632,33 @@ if st.button("🚀 开始斩杀演算", use_container_width=True):
         reach_3_6 = 0
         for _ in range(iters):
             engine = GameEngine(cfg)
-            slots = [p1, p2, p3, s1, s2, e1]
-            for idx, (name, val) in enumerate(slots):
-                if name != "无 (Empty)":
-                    max_u = val if idx == 5 else 99
-                    soul_v = 0 if idx >= 3 else val
-                    card_obj = create_card_instance(name, soul_v, max_uses=max_u)
-                    if card_obj: engine.all_active_cards.append(card_obj)
             
-            front_attackers = [c for c in engine.all_active_cards if engine.all_active_cards.index(c) < 3]
-            for attacker in front_attackers:
+            # 1. 明确区分前排和后排/事件
+            attackers = []
+            supports = []
+            
+            # 处理前排攻击者 (p1, p2, p3)
+            for name, val in [p1, p2, p3]:
+                if name != "无 (Empty)":
+                    card_obj = create_card_instance(name, val, max_uses=99)
+                    if card_obj: attackers.append(card_obj)
+            
+            # 处理后排支援与事件 (s1, s2, e1)
+            for idx, (name, val) in enumerate([s1, s2, e1]):
+                if name != "无 (Empty)":
+                    max_u = val if idx == 2 else 99  # e1 是这个小列表的 index 2
+                    card_obj = create_card_instance(name, 0, max_uses=max_u)
+                    if card_obj: supports.append(card_obj)
+            
+            # 2. 全部装载进引擎 (供全局光环或事件调用)
+            engine.all_active_cards.extend(attackers + supports)
+            
+            # 3. 仅对真正的前排执行攻击结算！
+            for attacker in attackers:
                 engine.simulate_attack(attacker)
                 if engine.opp_level >= 4: break
             
+            # 统计战果
             if engine.opp_level >= 4: kills += 1
             if (engine.opp_level == 3 and len(engine.opp_clock_zone) == 6) or engine.opp_level >= 4: reach_3_6 += 1
         
