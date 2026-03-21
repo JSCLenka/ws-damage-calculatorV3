@@ -9,6 +9,10 @@ import random
 # amt: int (效果相关的数值，如烧血量、推牌量)
 
 ACTION_MAP = {
+    # ==================================================
+    # 🟢 原始基础 Action (常规斩杀机制)
+    # ==================================================
+    
     # 1. 标准烧血 (可被取消)
     "Burn": lambda eng, src, amt: eng.deal_damage(amt),
     
@@ -46,5 +50,54 @@ ACTION_MAP = {
     "OppTopMillBurn": lambda eng, src, amt: eng.deal_damage(eng.mill_opp(amt, from_top=True)),
     
     # 13. 查自顶烧 (自己顶是 L3 或魂标则烧 X)
-    "PlayerTopCheckBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_player_top("level3") else None
+    "PlayerTopCheckBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_player_top("level3") else None,
+
+    # ==================================================
+    # 🚨 AI 提取并扩充的 15 个高级 Action (牌库赌博与条件特化)
+    # ==================================================
+    
+    # 14. 取消时烧血 (等同于 PassTheTorch 传火，为了迎合 AI 的命名习惯保留)
+    "CancelBurn": lambda eng, src, amt: eng.deal_damage(amt),
+    
+    # 15. 满足条件烧血 (因为我们是 Happy Path 假设条件全满足，所以直接烧)
+    "ConditionBurn": lambda eng, src, amt: eng.deal_damage(amt),
+
+    # 16. 推底，如果是 CX 则烧血
+    "BottomMillCxBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_bottom(condition="cx") else None,
+    
+    # 17. 推底，如果是 0 级则烧血 (黑川赤音效果)
+    "BottomMillLevel0Burn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_bottom(condition="level_0") else None,
+    
+    # 18. 推底，如果是特定等级则烧血
+    "BottomMillLevelBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_bottom(condition="level_match") else None,
+    
+    # 19. 看牌底，如果是 CX 则踢人进血 (ClockKick 无法取消，所以用 take_damage)
+    "BottomCheckCxClockKick": lambda eng, src, amt: eng.take_damage(1) if eng.check_bottom(condition="cx") else None,
+
+    # 20. 看对手牌顶，如果是 CX 则烧血
+    "TopCheckCxBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_opp_top(condition="cx") else None,
+    
+    # 21. 看对手牌顶，如果是特定等级则烧血
+    "TopCheckLevelBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_opp_top(condition="level_match") else None,
+    
+    # 22. 看对手牌顶，满足特定条件则烧血
+    "TopCheckConditionBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_opp_top(condition="any") else None,
+    
+    # 23. 推对手牌顶到休息室，如果是 CX 则烧血
+    "TopMillCxBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_opp_top(condition="cx") else None,
+    
+    # 24. 推对手牌顶到休息室，如果是特定等级则烧血
+    "TopMillLevelBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_opp_top(condition="level_match") else None,
+
+    # 25. 推对手牌顶到休息室，满足特定条件则烧血
+    "TopMillConditionBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_opp_top(condition="any") else None,
+
+    # 26. 推自己牌顶到休息室，如果是 CX 则烧血
+    "PlayerTopMillCxBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_player_top(condition="cx") else None,
+    
+    # 27. 看自己牌顶，如果是特定等级则烧血
+    "PlayerTopCheckLevelBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_player_top(condition="level_match") else None,
+    
+    # 28. 看自己牌顶，满足特定条件则烧血
+    "PlayerTopCheckConditionBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_player_top(condition="any") else None,
 }
