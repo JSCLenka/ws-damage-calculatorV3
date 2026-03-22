@@ -57,7 +57,7 @@ ACTION_MAP = {
     # ==================================================
     
     # 14. 取消时烧血 (等同于 PassTheTorch 传火，为了迎合 AI 的命名习惯保留)
-    "CancelBurn": lambda eng, src, amt: eng.deal_damage(amt),
+    "CancelBurn": lambda eng, src, amt: eng.deal_damage(amt, source_card=src),
     
     # 15. 满足条件烧血 (因为我们是 Happy Path 假设条件全满足，所以直接烧)
     "ConditionBurn": lambda eng, src, amt: eng.deal_damage(amt),
