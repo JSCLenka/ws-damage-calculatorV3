@@ -447,13 +447,14 @@ CARD_OPTIONS = ["无 (Empty)"] + list(RAW_DB.keys())
 def create_card_instance(display_key, soul, max_uses=99):
     """
     根据 UI 选择的显示键创建卡片实例
+    支持从 JSON 中读取限次技能逻辑
     """
     if display_key not in RAW_DB: 
         return None
     
     data = RAW_DB[display_key]
     
-    # 实例化基础卡片对象
+    # 1. 实例化基础卡片对象
     card = Card(
         name=data.get("name", "Unknown"), 
         level=int(data.get("level", 0)), 
@@ -462,7 +463,7 @@ def create_card_instance(display_key, soul, max_uses=99):
         soul=soul
     )
     
-    # 解析技能列表
+    # 2. 解析技能列表 (effects)
     effects_list = data.get("effects", [])
     if not isinstance(effects_list, list): 
         return card
@@ -472,22 +473,27 @@ def create_card_instance(display_key, soul, max_uses=99):
             action_name = eff_data["action"]
             trigger_name = eff_data.get("trigger", "OnAttack")
             
-            # 获取参数数值 (默认为 1)
+            # 获取效果数值 (amount)，默认为 1
             amt = eff_data.get("args", {}).get("amount", 1)
             
-            # 检查 action 是否在 ACTION_MAP 技能库中定义
+            # 【核心修改】：优先读取 JSON 里定义的 max_uses（如凤笑梦的 2 次）
+            # 如果 JSON 里没写，则沿用函数传入的默认值 (通常攻击者是 99，事件是 1)
+            current_max_uses = eff_data.get("max_uses", max_uses)
+            
+            # 3. 检查动作是否在技能库 (ACTION_MAP) 中
             if action_name in ACTION_MAP:
-                # 使用闭包正确绑定动作函数和数值
+                # 使用闭包正确绑定技能名和数值，防止循环变量污染
                 def make_action(act_name, a): 
                     return lambda eng, c: ACTION_MAP[act_name](eng, c, a)
                 
+                # 将解析出的效果添加到卡片实例中
                 card.effects.append(Effect(
                     trigger_name, 
                     make_action(action_name, amt), 
-                    max_uses=max_uses
+                    max_uses=current_max_uses
                 ))
             else:
-                # 库中未定义的技能暂不绑定
+                # 如果发现 actions.py 里没写的技能，在此跳过或记录
                 pass
                 
     return card
