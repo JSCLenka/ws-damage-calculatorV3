@@ -92,8 +92,11 @@ ACTION_MAP = {
     # 25. 推对手牌顶到休息室，满足特定条件则烧血
     "TopMillConditionBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_opp_top(condition="any") else None,
 
-    # 26. 推自己牌顶到休息室，如果是 CX 则烧血
+     # #26 的变体：推自己牌顶，如果是 CX 则烧血 (amt)
     "PlayerTopMillCxBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_player_top(condition="cx") else None,
+    
+    # 新增：推自己牌顶，如果是魂标 (Soul) 则烧血 (amt)
+    "PlayerTopMillSoulBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_player_top(condition="soul") else None,
     
     # 27. 看自己牌顶，如果是特定等级则烧血
     "PlayerTopCheckLevelBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_player_top(condition="level_match") else None,
