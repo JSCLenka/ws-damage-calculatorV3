@@ -11484,57 +11484,66 @@
     }
   },
   {
-    "name": "未来へと踏み出す一歩 がうる・ぐら",
-    "code": "HOL/W104-113",
-    "rarity": "RR",
-    "expansion": "Hololive vol.2",
-    "side": "W",
-    "type": "Character",
-    "color": "BLUE",
-    "level": 3,
-    "cost": 2,
-    "power": 8000,
-    "soul": 2,
-    "trigger": [
-      "SOUL"
-    ],
-    "flavor_text": "",
-    "ability": [
-      "【永】 あなたのキャラすべてが《ホロライブ》なら、このカードのパワーを＋3000。",
-      "【自】 このカードが手札から舞台に置かれた時、あなたは自分のクロックの上から1枚を、控え室に置いてよい。",
-      "【自】【CXコンボ】［(2) 手札を1枚控え室に置く］ このカードがアタックした時、クライマックス置場に「真夏の太陽」があり、あなたの手札が6枚以下なら、あなたはコストを払ってよい。そうしたら、相手に2ダメージを与え、次の行動を2回行う。『あなたは自分の山札の上から1枚を、控え室に置く。そのカードのトリガーアイコンにがあるなら、相手に1ダメージを与える。』（ダメージキャンセルは発生する）"
-    ],
-    "attributes": [
-      "Hololive",
-      "Hololive English-Myth-"
-    ],
-    "set": "HOL",
-    "release": "W104",
-    "sid": "113",
-    "image": "https://ws-tcg.com/wordpress/wp-content/images/cardlist/h/hol_w104/hol_w104_113.png",
-    "_radar_analysis": {
-      "is_candidate": true,
-      "detected_triggers": [
-        "CXCOMBO",
-        "OnAttack"
-      ]
-    },
-    "_ai_classification": {
-      "roles": [
-        "Resource",
-        "Finisher",
-        "Defender"
-      ],
-      "mechanics": [
-        "Power Boost",
-        "Clock Discard",
-        "CX Combo",
-        "Top Check",
-        "Burn"
-      ],
-      "standard_summary": "若己方所有角色均为《Hololive》，则本卡+3000力量；登场时可将自己伤害区顶层卡置入休息室；攻击时，若有特定CX且手牌≤6，可支付2点手牌代价，对对手造成2点伤害，并执行两次：检查牌库顶卡，若有指定触发图标则对对手造成1点伤害。"
+  "name": "未来へと踏み出す一歩 がうる・ぐら",
+  "code": "HOL/W104-113",
+  "rarity": "RR",
+  "expansion": "Hololive vol.2",
+  "side": "W",
+  "type": "Character",
+  "color": "BLUE",
+  "level": 3,
+  "cost": 2,
+  "power": 8000,
+  "soul": 2,
+  "trigger": [
+    "SOUL"
+  ],
+  "flavor_text": "",
+  "ability": [
+    "【永】 あなたのキャラすべてが《ホロライブ》なら、このカードのパワーを＋3000。",
+    "【自】 このカードが手札から舞台に置かれた時、あなたは自分のクロックの上から1枚を、控え室に置いてよい。",
+    "【自】【CXコンボ】［(2) 手札を1枚控え室に置く］ このカードがアタックした時、クライマックス置場に「真夏の太陽」があり、あなたの手札が6枚以下なら、あなたはコストを払ってよい。そうしたら、相手に2ダメージを与え、次の行動を2回行う。『あなたは自分の山札の上から1枚を、控え室に置く。そのカードのトリガーアイコンに魂标（SOUL）があるなら、相手に1ダメージを与える。』（ダメージキャンセルは発生する）"
+  ],
+  "effects": [
+    {
+      "trigger": "OnAttack",
+      "action": "GuraBurn",
+      "args": {
+        "amount": 2
+      }
     }
+  ],
+  "attributes": [
+    "Hololive",
+    "Hololive English-Myth-"
+  ],
+  "set": "HOL",
+  "release": "W104",
+  "sid": "113",
+  "image": "https://ws-tcg.com/wordpress/wp-content/images/cardlist/h/hol_w104/hol_w104_113.png",
+  "_radar_analysis": {
+    "is_candidate": true,
+    "detected_triggers": [
+      "CXCOMBO",
+      "OnAttack"
+    ]
   },
+  "_ai_classification": {
+    "roles": [
+      "Resource",
+      "Finisher",
+      "Defender"
+    ],
+    "mechanics": [
+      "Power Boost",
+      "Clock Discard",
+      "CX Combo",
+      "Top Check",
+      "Burn"
+    ],
+    "standard_summary": "若己方所有角色均为《Hololive》，则本卡+3000力量；登场时可回血；攻击时触发CX联动，对对手造成2点伤害，并执行两次：检查牌库顶卡，若有魂标（SOUL）图标则对对手造成1点伤害。"
+  }
+},
   {
     "name": "未来へ一緒に 桐生ココ",
     "code": "HOL/W91-004",
