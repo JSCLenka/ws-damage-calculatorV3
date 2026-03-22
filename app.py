@@ -403,43 +403,78 @@ class GameEngine:
 
 @st.cache_data
 def load_db():
-    if not os.path.exists("cards.json"): return {}
+    """
+    读取数据库并构建索引
+    Key 改为 "[卡号] 名字" 格式，以支持 UI 端的卡号搜索和唯一性区分
+    """
+    if not os.path.exists("cards.json"): 
+        return {}
     try:
         with open("cards.json", "r", encoding="utf-8") as f:
             data = json.load(f)
-        return {item["name"]: item for item in data}
+        
+        db = {}
+        for item in data:
+            # 提取卡号和名称，构建唯一显示键
+            code = item.get("code", "???")
+            name = item.get("name", "Unknown")
+            display_key = f"[{code}] {name}"
+            
+            # 将卡片完整信息存入该键下
+            db[display_key] = item
+        return db
     except Exception:
         return {}
 
+# 初始化数据库索引
 RAW_DB = load_db()
+# 下拉菜单选项：包含“空”以及所有“卡号+名字”的组合
 CARD_OPTIONS = ["无 (Empty)"] + list(RAW_DB.keys())
 
-def create_card_instance(name, soul, max_uses=99):
-    if name not in RAW_DB: return None
-    data = RAW_DB[name]
-    card = Card(name=data.get("name", "Unknown"), level=int(data.get("level", 0)), 
-                image=data.get("image", ""), soul=soul)
+def create_card_instance(display_key, soul, max_uses=99):
+    """
+    根据 UI 选择的显示键创建卡片实例
+    """
+    if display_key not in RAW_DB: 
+        return None
     
+    data = RAW_DB[display_key]
+    
+    # 实例化基础卡片对象
+    card = Card(
+        name=data.get("name", "Unknown"), 
+        level=int(data.get("level", 0)), 
+        image=data.get("image", ""), 
+        code=data.get("code", ""), 
+        soul=soul
+    )
+    
+    # 解析技能列表
     effects_list = data.get("effects", [])
-    if not isinstance(effects_list, list): return card
+    if not isinstance(effects_list, list): 
+        return card
 
     for eff_data in effects_list:
         if isinstance(eff_data, dict) and "action" in eff_data:
             action_name = eff_data["action"]
             trigger_name = eff_data.get("trigger", "OnAttack")
             
-            # 获取 args 里的 amount 参数，如果没有则默认为 1
+            # 获取参数数值 (默认为 1)
             amt = eff_data.get("args", {}).get("amount", 1)
             
-            # 【核心修复】：去 actions.py 里的 ACTION_MAP 技能库找对应的公式
+            # 检查 action 是否在 ACTION_MAP 技能库中定义
             if action_name in ACTION_MAP:
-                # 使用闭包正确绑定技能名和数值
+                # 使用闭包正确绑定动作函数和数值
                 def make_action(act_name, a): 
                     return lambda eng, c: ACTION_MAP[act_name](eng, c, a)
                 
-                card.effects.append(Effect(trigger_name, make_action(action_name, amt), max_uses=max_uses))
+                card.effects.append(Effect(
+                    trigger_name, 
+                    make_action(action_name, amt), 
+                    max_uses=max_uses
+                ))
             else:
-                # 如果 cards.json 里有我们还没在 actions.py 里写的奇葩效果，就先安全跳过，防止报错
+                # 库中未定义的技能暂不绑定
                 pass
                 
     return card
