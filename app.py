@@ -323,13 +323,23 @@ class GameEngine:
     # ==========================================
 
     def _evaluate_condition(self, card, condition):
-        """内部辅助函数：判断一张牌是否满足特定条件"""
+        """内部辅助函数：判断一张牌是否满足特定条件 (增强版)"""
         if not card: return False
-        if condition == "cx": return card.get("is_cx", False)
-        if condition == "level_0": return card.get("level", -1) == 0
         
-        # 🌟 贪婪法则 (Happy Path)：要求特定等级或特征，默认成功！
-        if condition in ["level_match", "any", "soul", "level3"]: 
+        # 判定是否为 CX
+        if condition == "cx": 
+            return card.get("is_cx", False)
+            
+        # 判定是否带有魂标 (Trigger) -> 这就是 Gura 需要的
+        if condition == "soul":
+            return card.get("trigger", False)
+            
+        # 判定等级
+        if condition == "level_0": return card.get("level", -1) == 0
+        if condition == "level3": return card.get("level", -1) == 3
+        
+        # 贪婪法则 (Happy Path)
+        if condition in ["level_match", "any"]: 
             return True
         return False
 
@@ -382,8 +392,11 @@ class GameEngine:
         return self._evaluate_condition(self.player_deck[0], condition)
 
     def mill_and_check_player_top(self, condition):
-        """推自己牌顶到休息室，并判断条件"""
+        """推自己牌顶到休息室，并判断条件 (复用逻辑)"""
+        if not self.player_deck:
+            self.player_refresh()
         if not self.player_deck: return False
+        
         top_card = self.player_deck.pop(0)
         self.player_waiting_room.append(top_card)
         return self._evaluate_condition(top_card, condition)
