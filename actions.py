@@ -98,6 +98,14 @@ ACTION_MAP = {
     # 新增：推自己牌顶，如果是魂标 (Soul) 则烧血 (amt)
     "PlayerTopMillSoulBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.mill_and_check_player_top(condition="soul") else None,
     
+    # --- 复合动作 (小鲨鱼专用) ---
+    # 逻辑：先 Burn 2，然后执行两次 [推顶判定魂标烧1]
+    "GuraBurn": lambda eng, src, _: [
+        eng.deal_damage(2),
+        eng.deal_damage(1) if eng.mill_and_check_player_top(condition="soul") else None,
+        eng.deal_damage(1) if eng.mill_and_check_player_top(condition="soul") else None
+    ],
+    
     # 27. 看自己牌顶，如果是特定等级则烧血
     "PlayerTopCheckLevelBurn": lambda eng, src, amt: eng.deal_damage(amt) if eng.check_player_top(condition="level_match") else None,
     
